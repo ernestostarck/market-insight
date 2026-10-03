@@ -1,0 +1,167 @@
+{
+  "uid": "rag-monitoring",
+  "title": "MercadoInsight — Conversational RAG & Cost Monitoring",
+  "tags": ["market-insight", "rag", "ai", "llm", "cost", "security"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "RAG Throughput & Quality Overview",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Consultas RAG Totales",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sum(ai_rag_requests_total)", "legendFormat": "Consultas" }],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tasa de Grounding Fáctico (%)",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "(sum(ai_grounding_score_bucket{le=\"1.0\", grounded=\"true\"}) / (sum(ai_grounding_score_count) + 0.001)) * 100",
+          "legendFormat": "Grounding %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 85, "color": "yellow" },
+              { "value": 95, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Costo Acumulado IA ($ USD)",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sum(ai_rag_cost_usd_total)", "legendFormat": "USD Cost" }],
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD", "decimals": 2, "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Feedback Positivo (%)",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "(sum(ai_feedback_total{rating=\"positive\"}) / (sum(ai_feedback_total) + 0.001)) * 100",
+          "legendFormat": "Aprobación %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 70, "color": "yellow" },
+              { "value": 85, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Latencias & Rendimiento",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Latencia RAG Turn (P50, P95, P99)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(ai_rag_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P50 Latency"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(ai_rag_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P95 Latency"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(ai_rag_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P99 Latency"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "lineInterpolation": "smooth" } }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Consumo de Tokens (Input vs Output)",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_rag_tokens_total{type=\"input\"}[5m]))",
+          "legendFormat": "Input Tokens/s"
+        },
+        {
+          "expr": "sum(rate(ai_rag_tokens_total{type=\"output\"}[5m]))",
+          "legendFormat": "Output Tokens/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line" } }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Seguridad & Guardrails",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "bargauge",
+      "title": "Intervenciones de Guardrails por Capa",
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(ai_guardrail_blocks_total) by (layer)",
+          "legendFormat": "{{layer}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Consultas Anómalas o de Alto Costo",
+      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 6 },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_costly_queries_total[5m])) by (model)",
+          "legendFormat": "Anomalías: {{model}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "points", "pointSize": 6 } }
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+# Observed behaviour of the signals behind every threshold-based alert.
+#
+# Alert thresholds in this directory are PROVISIONAL until they have been
+# compared with these series over enough real traffic (see docs/ops/principles.md,
+# "Calibración de umbrales"). These are recording rules only: they never alert.
+groups:
+  - name: threshold_calibration
+    interval: 5m
+    rules:
+      - record: calibration:data_freshness_seconds:p95_7d
+        expr: quantile_over_time(0.95, data_freshness_seconds[7d])
+
+      - record: calibration:data_freshness_seconds:max_7d
+        expr: max_over_time(data_freshness_seconds[7d])
+
+      - record: calibration:data_quality_score:min_7d
+        expr: min_over_time(data_quality_score[7d])
+
+      - record: calibration:http_request_duration_seconds:p95_1d
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1d])) by (le))
+
+      - record: calibration:http_error_ratio:max_7d
+        expr: max_over_time((sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])))[7d:5m])
+
+      - record: calibration:etl_duration_seconds:p95_7d
+        expr: histogram_quantile(0.95, sum(rate(etl_duration_seconds_bucket[7d])) by (le))
+
+      - record: calibration:nlp_low_confidence_ratio:avg_7d
+        expr: sum(increase(nlp_low_confidence_total[7d])) / sum(increase(nlp_classifications_total[7d]))

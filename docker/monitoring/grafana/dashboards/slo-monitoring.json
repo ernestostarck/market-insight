@@ -1,0 +1,223 @@
+{
+  "uid": "slo-monitoring",
+  "title": "MercadoInsight — Service Level Objectives (SLO)",
+  "tags": ["market-insight", "slo", "sli", "reliability", "sre"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "SLO & Error Budget Overview",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "gauge",
+      "title": "API Availability SLI (Objetivo >= 99.5%)",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "sli:http_availability:ratio_rate5m * 100 or 100",
+          "legendFormat": "Disponibilidad Actual"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 95,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 98.0, "color": "yellow" },
+              { "value": 99.5, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Disponibilidad Error Budget Restante",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "clamp_max(clamp_min((1 - ((1 - (sli:http_availability:ratio_rate1h or 1)) / 0.005)) * 100, 0), 100)",
+          "legendFormat": "Budget %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 20, "color": "yellow" },
+              { "value": 50, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "ETL Success Rate SLI (Objetivo >= 98.0%)",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "sli:etl_success:ratio_rate24h * 100 or 100",
+          "legendFormat": "Éxito ETL 24h"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 90,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 95.0, "color": "yellow" },
+              { "value": 98.0, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Data Freshness SLO (Objetivo >= 95.0%)",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "sli:data_freshness_slo:ratio_rate24h * 100 or 100",
+          "legendFormat": "Cumplimiento Frescura"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 85,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 90.0, "color": "yellow" },
+              { "value": 95.0, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "API Performance & Latency SLO (P95 <= 300ms Standard / 800ms Analytics)",
+      "gridPos": { "x": 0, "y": 7, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "P95 Latency Instantánea API",
+      "gridPos": { "x": 0, "y": 8, "w": 6, "h": 6 },
+      "targets": [
+        {
+          "expr": "sli:http_latency_p95:seconds_rate5m or 0.05",
+          "legendFormat": "P95 Actual"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 0.3, "color": "yellow" },
+              { "value": 0.8, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Latencia por Percentiles (P50, P90, P95, P99)",
+      "gridPos": { "x": 6, "y": 8, "w": 18, "h": 6 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P50 (Mediana)"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P90"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P95 (SLO Target <= 300ms)"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Histórico de Confiabilidad y Cumplimiento",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Histórico de Disponibilidad de la API (%)",
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sli:http_availability:ratio_rate5m * 100",
+          "legendFormat": "Disponibilidad %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 90,
+          "max": 100,
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Histórico de Éxito de Pipelines ETL (%)",
+      "gridPos": { "x": 12, "y": 15, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sli:etl_success:ratio_rate24h * 100",
+          "legendFormat": "Éxito ETL %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 90,
+          "max": 100,
+          "unit": "percent"
+        }
+      }
+    }
+  ]
+}

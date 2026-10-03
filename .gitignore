@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Environment files & Secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.*.sample
+
+# Real per-service secrets (dev credentials, API tickets). See .env.example
+# for the template of required keys.
+docker/compose/.env.*
+!docker/compose/.env.*.example
+!docker/compose/.gitkeep
+
+# Node
+node_modules/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Environments & TLS material, test artifacts
+docker/nginx/certs/*
+!docker/nginx/certs/.gitkeep
+docker/nginx/auth/*
+!docker/nginx/auth/.gitkeep
+test-results/
+*.key
+*.pem
+*.dump
+
+
+# Local tooling / personal notes (never publish)
+.claude/
+graphify-out/
+13 instrucciones para ahorrar tokens en Claude y Claude Code.md
+CLAUDE.local.md
+
+# Databases, dumps and data volumes
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.backup
+backups/
+pgdata/
+*.p12
+*.pfx
+id_rsa*
+.coverage
+coverage/
+htmlcov/

@@ -1,0 +1,202 @@
+{
+  "version": "taxonomy-2026.3",
+  "categories": [
+    {
+      "code": "technology",
+      "name": "Tecnología",
+      "description": "Software, hardware, comunicaciones y servicios digitales.",
+      "subcategories": [
+        {
+          "code": "hardware",
+          "name": "Hardware",
+          "description": "Computadores, periféricos y equipamiento tecnológico."
+        },
+        {
+          "code": "software",
+          "name": "Software",
+          "description": "Licencias, plataformas y desarrollo de software."
+        }
+      ]
+    },
+    {
+      "code": "health",
+      "name": "Salud",
+      "description": "Equipamiento, insumos y servicios destinados a la salud.",
+      "subcategories": [
+        {
+          "code": "medical-equipment",
+          "name": "Equipamiento médico",
+          "description": "Dispositivos y equipamiento clínico."
+        },
+        {
+          "code": "medical-supplies",
+          "name": "Insumos médicos",
+          "description": "Materiales y consumibles clínicos."
+        },
+        {
+          "code": "geriatric-care",
+          "name": "Atención geriátrica y adulto mayor",
+          "description": "Servicios y equipamiento orientados a la atención de personas mayores.",
+          "concepts": [
+            {
+              "code": "geriatria",
+              "name": "Geriatría",
+              "description": "Atención médica especializada en personas mayores."
+            },
+            {
+              "code": "adultos_mayores",
+              "name": "Adultos mayores",
+              "description": "Bienes y servicios dirigidos a personas de la tercera edad."
+            }
+          ]
+        },
+        {
+          "code": "assistive-technology",
+          "name": "Ayudas técnicas y rehabilitación",
+          "description": "Dispositivos de asistencia y servicios de rehabilitación para personas con discapacidad o movilidad reducida.",
+          "concepts": [
+            {
+              "code": "discapacidad",
+              "name": "Discapacidad",
+              "description": "Bienes y servicios dirigidos a personas en situación de discapacidad."
+            },
+            {
+              "code": "movilidad_reducida",
+              "name": "Movilidad reducida",
+              "description": "Ayudas de movilidad para personas con desplazamiento limitado."
+            },
+            {
+              "code": "ayudas_tecnicas",
+              "name": "Ayudas técnicas",
+              "description": "Dispositivos de asistencia para personas con discapacidad."
+            },
+            {
+              "code": "rehabilitacion",
+              "name": "Rehabilitación",
+              "description": "Servicios y terapias de rehabilitación física y funcional."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "construction",
+      "name": "Construcción",
+      "description": "Obras, mantención de infraestructura y materiales de construcción.",
+      "subcategories": [
+        {
+          "code": "civil-works",
+          "name": "Obras civiles",
+          "description": "Construcción, reparación y mejoramiento de infraestructura."
+        },
+        {
+          "code": "construction-materials",
+          "name": "Materiales de construcción",
+          "description": "Materiales y suministros para obras."
+        },
+        {
+          "code": "accessibility-adaptation",
+          "name": "Accesibilidad y adaptación de espacios",
+          "description": "Obras y adaptaciones para mejorar la accesibilidad física de espacios.",
+          "concepts": [
+            {
+              "code": "accesibilidad",
+              "name": "Accesibilidad",
+              "description": "Condiciones y adaptaciones que permiten el acceso universal a espacios y servicios."
+            },
+            {
+              "code": "prevencion_caidas",
+              "name": "Prevención de caídas",
+              "description": "Adaptaciones orientadas a reducir el riesgo de caídas."
+            },
+            {
+              "code": "adaptacion_espacios",
+              "name": "Adaptación de espacios",
+              "description": "Modificaciones de infraestructura para adecuarla a necesidades de accesibilidad."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "transport",
+      "name": "Transporte",
+      "description": "Vehículos, logística, movilidad y sus servicios asociados.",
+      "subcategories": [
+        {
+          "code": "vehicles",
+          "name": "Vehículos",
+          "description": "Vehículos, repuestos y accesorios."
+        },
+        {
+          "code": "logistics",
+          "name": "Logística",
+          "description": "Transporte de carga, distribución y servicios logísticos."
+        }
+      ]
+    },
+    {
+      "code": "professional-services",
+      "name": "Servicios profesionales",
+      "description": "Consultorías, asesorías y servicios especializados.",
+      "subcategories": [
+        {
+          "code": "consulting",
+          "name": "Consultoría",
+          "description": "Asesorías y estudios especializados."
+        },
+        {
+          "code": "training",
+          "name": "Capacitación",
+          "description": "Formación, talleres y entrenamiento."
+        }
+      ]
+    },
+    {
+      "code": "general-supplies",
+      "name": "Suministros generales",
+      "description": "Bienes de consumo y suministros operacionales.",
+      "subcategories": [
+        {
+          "code": "office-supplies",
+          "name": "Útiles de oficina",
+          "description": "Papelería y artículos de oficina."
+        },
+        {
+          "code": "cleaning-supplies",
+          "name": "Aseo",
+          "description": "Productos y materiales de limpieza."
+        }
+      ]
+    },
+    {
+      "code": "apparel",
+      "name": "Vestuario",
+      "description": "Prendas de vestir y textiles, ajenos al mercado de geriatría/accesibilidad/discapacidad.",
+      "subcategories": [
+        {
+          "code": "shapewear",
+          "name": "Vestimenta moldeadora",
+          "description": "Fajas y prendas reductoras/moldeadoras de uso corporal.",
+          "concepts": [
+            {
+              "code": "faja_reductora",
+              "name": "Faja reductora",
+              "description": "Prenda moldeadora de compresión corporal con fines estéticos, sin uso ortopédico ni clínico."
+            },
+            {
+              "code": "faja_moldeadora_short",
+              "name": "Faja moldeadora tipo short",
+              "description": "Faja body moldeadora tipo short sin costuras."
+            },
+            {
+              "code": "faja_moldeadora_colaless",
+              "name": "Faja moldeadora tipo colaless",
+              "description": "Faja body moldeadora tipo colaless (tanga) con cierre frontal."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-09-20T19:51:16.490569+00:00",
+  "total_tenders": 20,
+  "accuracy": 0.9,
+  "f1_macro": 0.9053,
+  "precision_macro": 0.9444,
+  "recall_macro": 0.8875,
+  "relevance_accuracy": 0.95,
+  "mean_latency_ms": 1.56,
+  "p95_latency_ms": 2.24,
+  "drift_kl": 0.061207,
+  "per_class": {
+    "construction": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1": 0.8889,
+      "support": 5
+    },
+    "health": {
+      "precision": 0.7778,
+      "recall": 1.0,
+      "f1": 0.875,
+      "support": 7
+    },
+    "not_relevant": {
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1": 0.8571,
+      "support": 4
+    },
+    "technology": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 4
+    }
+  },
+  "confusion_matrix": {
+    "construction": {
+      "construction": 4,
+      "health": 1,
+      "not_relevant": 0,
+      "technology": 0
+    },
+    "health": {
+      "construction": 0,
+      "health": 7,
+      "not_relevant": 0,
+      "technology": 0
+    },
+    "not_relevant": {
+      "construction": 0,
+      "health": 1,
+      "not_relevant": 3,
+      "technology": 0
+    },
+    "technology": {
+      "construction": 0,
+      "health": 0,
+      "not_relevant": 0,
+      "technology": 4
+    }
+  }
+}

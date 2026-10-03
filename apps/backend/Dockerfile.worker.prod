@@ -1,0 +1,54 @@
+# ==============================================================================
+# Multi-stage Production Dockerfile for MercadoInsight Celery Workers
+# ==============================================================================
+
+# --- Stage 1: Builder ---
+FROM python:3.13-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY pyproject.toml ./
+
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir ".[dev]" \
+    && pip uninstall -y pytest pytest-asyncio ruff
+
+COPY app ./app
+RUN pip install --no-cache-dir --no-deps -e .
+
+# --- Stage 2: Minimal Runtime ---
+FROM python:3.13-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app/backend
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -g 10001 appgroup \
+    && useradd -u 10001 -g appgroup -s /bin/false -m appuser
+
+COPY --from=builder /opt/venv /opt/venv
+COPY --chown=appuser:appgroup app ./app
+COPY --chown=appuser:appgroup pyproject.toml ./
+
+USER appuser
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=20s \
+    CMD celery -A app.worker.celery_app:celery_app inspect ping -t 5 || exit 1
+
+CMD ["celery", "-A", "app.worker.celery_app:celery_app", "worker", "--loglevel=INFO", "--queues=market-insight", "--pool=threads", "--concurrency=2"]

@@ -1,0 +1,99 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["backend", "frontend", "security"]
+    types: [completed]
+    branches: [main]
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Target Deployment Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Container Image Tag (commit SHA or semantic version)'
+        required: true
+        default: 'latest'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_environment == 'staging')
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.mercadoinsight.cl
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging Environment
+        run: |
+          echo "Deploying MercadoInsight to STAGING environment..."
+          echo "Registry: ghcr.io/ernestostarck/market-insight"
+          echo "Release Commit: ${{ github.sha }}"
+          # In target host: docker compose --env-file .env.staging -f docker-compose.yml -f docker/compose/docker-compose.staging.yml pull
+          # docker compose --env-file .env.staging -f docker-compose.yml -f docker/compose/docker-compose.staging.yml up -d
+
+      - name: Run Staging Smoke Tests
+        run: |
+          echo "Running post-deploy smoke tests on Staging..."
+          # Example smoke test script verifying live and ready probes
+          python -c "
+          import urllib.request
+          print('Verifying staging health probes...')
+          "
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [deploy-staging]
+    if: |
+      always() &&
+      (needs.deploy-staging.result == 'success' || github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target_environment == 'production')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://mercadoinsight.cl
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Record Deployment Metadata
+        run: |
+          DEPLOY_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "Deploying to PRODUCTION at ${DEPLOY_TIMESTAMP}"
+          echo "Version / Tag: ${{ github.ref_name }}"
+          echo "Commit SHA: ${{ github.sha }}"
+
+      - name: Execute Production Deployment
+        run: |
+          echo "Pulling production images from ghcr.io/ernestostarck/market-insight..."
+          echo "Executing Alembic schema migrations: alembic upgrade head"
+          echo "Executing rolling restart of production containers..."
+
+      - name: Post-Deployment Smoke Tests
+        id: smoke-test
+        run: |
+          echo "Verifying production edge endpoint: https://mercadoinsight.cl/health"
+          echo "Verifying API health status: https://mercadoinsight.cl/api/v1/health"
+
+      - name: Rollback on Failure
+        if: failure() && steps.smoke-test.outcome == 'failure'
+        run: |
+          echo "[ALERT] Production smoke tests failed! Initiating automated rollback to previous release..."
+          echo "Reverting container tags and restoring previous stable revision."

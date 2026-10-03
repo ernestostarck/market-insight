@@ -1,0 +1,376 @@
+# Production environment.
+#
+#   docker compose --env-file .env.prod -f docker-compose.yml -f docker/compose/docker-compose.prod.yml up -d --build
+#
+# Design:
+#   * nginx is the ONLY service that publishes ports (80 -> 443 redirect, 443 TLS).
+#   * PostgreSQL, Redis, MinIO, API, workers, Prometheus, Loki, exporters: internal network only.
+#   * Grafana (/grafana/) and Alertmanager (/alertmanager/) are exposed through nginx behind basic auth.
+#   * The dev `docker/compose/.env.*` files are NEVER loaded (`env_file: !reset []`): every
+#     credential must come from --env-file (see .env.prod.example) and compose aborts if one is missing.
+#   * pgAdmin / RedisInsight are not part of production.
+x-logging: &json-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-app-env: &app-env
+  ENVIRONMENT: production
+  LOG_LEVEL: INFO
+  LOG_FORMAT: json
+  SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required in production (python -c "import secrets; print(secrets.token_hex(32))")}
+  DATABASE_URL: postgresql+psycopg://market_insight_app:${MARKET_INSIGHT_APP_PASSWORD:?MARKET_INSIGHT_APP_PASSWORD is required}@postgres:5432/market_insight
+  REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+  MINIO_ENDPOINT: minio:9000
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+  MINIO_BUCKET_PUBLIC_DOCUMENTS: documents-public
+  MINIO_BUCKET_PRIVATE_DOCUMENTS: documents-private
+  MINIO_BUCKET_ATTACHMENTS: attachments
+  CHILECOMPRA_API_KEY: ${CHILECOMPRA_API_KEY:?CHILECOMPRA_API_KEY is required}
+  BACKEND_CORS_ORIGINS: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required (e.g. https://app.example.com)}
+  RATE_LIMIT_ENABLED: "true"
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: production
+  SENTRY_TRACES_SAMPLE_RATE: "0.1"
+  SENTRY_PROFILES_SAMPLE_RATE: "0.0"
+  OTEL_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+  ALERT_WEBHOOK_TOKEN: ${ALERT_WEBHOOK_TOKEN:?ALERT_WEBHOOK_TOKEN is required (shared with Alertmanager)}
+
+# Alertmanager config is rendered by compose so SMTP settings come from --env-file;
+# the two secrets are mounted as files (Alertmanager reads *_file / credentials_file).
+configs:
+  alertmanager_prod:
+    content: |
+      global:
+        resolve_timeout: 5m
+        smtp_smarthost: '${ALERT_SMTP_HOST:?ALERT_SMTP_HOST is required (host:port)}'
+        smtp_from: '${ALERT_EMAIL_FROM:?ALERT_EMAIL_FROM is required}'
+        smtp_auth_username: '${ALERT_SMTP_USER:?ALERT_SMTP_USER is required}'
+        smtp_auth_password_file: /run/secrets/alert_smtp_password
+        smtp_require_tls: true
+
+      templates:
+        - '/etc/alertmanager/templates/*.tmpl'
+
+      route:
+        group_by: ['alertname', 'team']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 12h
+        receiver: 'info-log-sink'
+        routes:
+          - matchers: ['severity="critical"']
+            receiver: 'critical-notifications'
+          - matchers: ['severity="warning"']
+            receiver: 'warning-notifications'
+            repeat_interval: 24h
+          - matchers: ['severity="info"']
+            receiver: 'info-log-sink'
+
+      # Warnings are held back while a critical alert of the same team is firing (root cause first).
+      inhibit_rules:
+        - source_matchers: ['severity="critical"']
+          target_matchers: ['severity="warning"']
+          equal: ['team']
+
+      receivers:
+        - name: 'critical-notifications'
+          email_configs:
+            - to: '${ALERT_EMAIL_TO:?ALERT_EMAIL_TO is required}'
+              send_resolved: true
+              headers:
+                Subject: '{{ template "email.default.subject" . }}'
+              html: '{{ template "email.default.html" . }}'
+          webhook_configs:
+            - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+              send_resolved: true
+              http_config:
+                authorization:
+                  type: Bearer
+                  credentials_file: /run/secrets/alert_webhook_token
+
+        - name: 'warning-notifications'
+          email_configs:
+            - to: '${ALERT_EMAIL_TO}'
+              send_resolved: true
+              headers:
+                Subject: '{{ template "email.default.subject" . }}'
+              html: '{{ template "email.default.html" . }}'
+          webhook_configs:
+            - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+              send_resolved: true
+              http_config:
+                authorization:
+                  type: Bearer
+                  credentials_file: /run/secrets/alert_webhook_token
+
+        # Informational: recorded in logs only, never sent to a person.
+        - name: 'info-log-sink'
+          webhook_configs:
+            - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+              send_resolved: false
+              http_config:
+                authorization:
+                  type: Bearer
+                  credentials_file: /run/secrets/alert_webhook_token
+
+secrets:
+  alert_webhook_token:
+    environment: ALERT_WEBHOOK_TOKEN
+  alert_smtp_password:
+    environment: ALERT_SMTP_PASSWORD
+
+services:
+  postgres:
+    env_file: !reset []
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      POSTGRES_DB: market_insight
+      POSTGRES_USER: market_insight
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      MARKET_INSIGHT_ADMIN_PASSWORD: ${MARKET_INSIGHT_ADMIN_PASSWORD:?MARKET_INSIGHT_ADMIN_PASSWORD is required}
+      MARKET_INSIGHT_APP_PASSWORD: ${MARKET_INSIGHT_APP_PASSWORD:?MARKET_INSIGHT_APP_PASSWORD is required}
+      MARKET_INSIGHT_READONLY_PASSWORD: ${MARKET_INSIGHT_READONLY_PASSWORD:?MARKET_INSIGHT_READONLY_PASSWORD is required}
+
+  redis:
+    env_file: !reset []
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+  minio:
+    env_file: !reset []
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+
+  minio-init:
+    env_file: !reset []
+    networks:
+      - private-net
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_BUCKET_PUBLIC_DOCUMENTS: documents-public
+      MINIO_BUCKET_PRIVATE_DOCUMENTS: documents-private
+      MINIO_BUCKET_ATTACHMENTS: attachments
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.prod
+    env_file: !reset []
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - public-net
+      - private-net
+    # Behind nginx: honour X-Forwarded-For so rate limiting and access logs see the real client.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    environment:
+      <<: *app-env
+      OTEL_SERVICE_NAME: market-insight-backend
+
+  nlp-worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker.prod
+    env_file: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    command: ["celery", "-A", "app.worker.celery_app:celery_app", "worker", "--loglevel=WARNING", "--queues=nlp", "--pool=threads", "--concurrency=4"]
+    environment:
+      <<: *app-env
+      LOG_LEVEL: WARNING
+      OTEL_ENABLED: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4G
+        reservations:
+          cpus: "1.0"
+          memory: 2G
+
+  etl-worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker.prod
+    env_file: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    command: ["celery", "-A", "app.worker.celery_app:celery_app", "worker", "--loglevel=WARNING", "--queues=market-insight", "--pool=threads", "--concurrency=2", "--hostname=etl@%h"]
+    environment:
+      <<: *app-env
+      LOG_LEVEL: WARNING
+      OTEL_ENABLED: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  etl-beat:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker.prod
+    env_file: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      <<: *app-env
+      LOG_LEVEL: WARNING
+      OTEL_ENABLED: "false"
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile.prod
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - public-net
+
+  # Single public entrypoint.
+  nginx:
+    logging: *json-logging
+    networks:
+      - public-net
+    ports:
+      - "443:443"
+    volumes:
+      - ./docker/nginx/prod/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+      - ./docker/nginx/auth:/etc/nginx/auth:ro
+    depends_on:
+      grafana:
+        condition: service_started
+      alertmanager:
+        condition: service_started
+
+  # Developer tooling: not deployed to production.
+  pgadmin:
+    profiles: ["disabled"]
+  redisinsight:
+    profiles: ["disabled"]
+
+  postgres-exporter:
+    ports: !reset []
+    networks:
+      - private-net
+    environment:
+      DATA_SOURCE_NAME: postgresql://market_insight:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/market_insight?sslmode=disable
+
+  redis-exporter:
+    ports: !reset []
+    networks:
+      - private-net
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+  cadvisor:
+    ports: !reset []
+    networks:
+      - private-net
+
+  # Internal only: no host port and no nginx route. Lifecycle API (remote reload/quit) disabled.
+  prometheus:
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+
+  # Published only through nginx (/grafana/) behind basic auth + Grafana's own login.
+  grafana:
+    env_file: !reset []
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - public-net
+      - private-net
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_SERVER_ROOT_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+
+  # Published only through nginx (/alertmanager/, prefix stripped) behind basic auth.
+  alertmanager:
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - public-net
+      - private-net
+    configs:
+      - source: alertmanager_prod
+        target: /etc/alertmanager/alertmanager.yml
+    secrets:
+      - alert_webhook_token
+      - alert_smtp_password
+    # Replaces the dev config bind mount inherited from the base file.
+    volumes: !override
+      - ./docker/monitoring/alertmanager/templates:/etc/alertmanager/templates:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.external-url=${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}/alertmanager/
+      - --web.route-prefix=/
+
+  loki:
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+
+  promtail:
+    logging: *json-logging
+    networks:
+      - private-net
+
+  # OpenTelemetry: the API exports OTLP/gRPC spans here. The collector currently forwards
+  # them to its own log (searchable in Loki); add a tracing backend in otel-collector.yml.
+  otel-collector:
+    image: otel/opentelemetry-collector:0.104.0
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./docker/monitoring/otel/otel-collector.yml:/etc/otelcol/config.yml:ro
+    logging: *json-logging
+    networks:
+      - private-net
+    restart: unless-stopped
+
+networks:
+  public-net:
+    name: mercadoinsight_public_net
+    driver: bridge
+  private-net:
+    name: mercadoinsight_private_net
+    driver: bridge

@@ -1,0 +1,161 @@
+{
+  "uid": "nlp-monitoring",
+  "title": "MercadoInsight — NLP & AI Pipeline Monitoring",
+  "tags": ["market-insight", "nlp", "ai", "machine-learning"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Throughput & Overview",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Documentos Procesados (Total)",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sum(nlp_documents_processed_total)", "legendFormat": "Documentos" }],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tasa de Baja Confianza (%)",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "(sum(rate(nlp_low_confidence_total[1h])) / (sum(rate(nlp_classifications_total[1h])) + 0.001)) * 100",
+          "legendFormat": "Baja Confianza %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 15, "color": "yellow" },
+              { "value": 30, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Fallos de Embeddings",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sum(nlp_embedding_failures_total)", "legendFormat": "Fallos Embeddings" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 1, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Data Drift (KL Divergence)",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "nlp_data_drift_kl_divergence or 0.05", "legendFormat": "KL Divergence" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 0.2, "color": "yellow" },
+              { "value": 0.5, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Distribución & Latencias",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Distribución de Clasificaciones por Categoría",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (category_code) (rate(nlp_category_distribution_total[1h]))",
+          "legendFormat": "{{category_code}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Latencia de Etapas NLP (P50, P90, P99)",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(nlp_processing_duration_seconds_bucket[5m])) by (le, stage)) * 1000",
+          "legendFormat": "{{stage}} P50"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(nlp_processing_duration_seconds_bucket[5m])) by (le, stage)) * 1000",
+          "legendFormat": "{{stage}} P90"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(nlp_processing_duration_seconds_bucket[5m])) by (le, stage)) * 1000",
+          "legendFormat": "{{stage}} P99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tasa de Errores NLP por Etapa y Código",
+      "gridPos": { "x": 0, "y": 13, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (stage, error_code) (rate(nlp_errors_total[5m]))",
+          "legendFormat": "{{stage}} - {{error_code}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Throughput de Clasificaciones por Método",
+      "gridPos": { "x": 12, "y": 13, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (method) (rate(nlp_classifications_total[5m]))",
+          "legendFormat": "{{method}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    }
+  ]
+}

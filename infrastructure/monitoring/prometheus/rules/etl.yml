@@ -1,0 +1,57 @@
+groups:
+  - name: etl_alerts
+    rules:
+      - alert: ETLFailed
+        expr: increase(etl_records_failed_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: data-engineering
+        annotations:
+          summary: "Falla detectada en ejecución de pipeline ETL"
+          description: "Se han registrado registros fallidos en el pipeline de sincronización de MercadoPúblico."
+
+      - alert: ETLStale
+        expr: time() - etl_last_success_timestamp > 86400
+        for: 15m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Pipeline ETL detenido o sin sincronización reciente (> 24 horas)"
+          description: "La última ejecución exitosa del pipeline de extracción ocurrió hace más de 24 horas."
+
+      - alert: ETLHighErrorRate
+        expr: rate(etl_records_failed_total[15m]) / (rate(etl_records_processed_total[15m]) + 0.001) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+          team: data-engineering
+        annotations:
+          summary: "Aumento crítico en tasa de error ETL (> 5%)"
+          description: "Más del 5% de los registros procesados en los últimos 15 minutos han fallado durante la ingesta."
+
+      # Volume-only signal. Fewer records read can be a normal business change
+      # (weekend, holiday, fewer publications) and says nothing about whether
+      # ChileCompra or the pipeline is down, so it is informational: it is
+      # routed to the log sink and never pages. Operational failure is covered
+      # by ETLFailed, ETLHighErrorRate, ETLStale and DataFreshness*.
+      - alert: ETLIngestionVolumeDrop
+        expr: sum by (pipeline) (rate(etl_records_processed_total{action="read"}[1h])) < 0.01 and sum by (pipeline) (rate(etl_records_processed_total{action="read"}[24h])) > 0.5
+        for: 30m
+        labels:
+          severity: info
+          team: data-engineering
+        annotations:
+          summary: "Menor volumen de registros ingeridos (informativo)"
+          description: "El volumen leído en la última hora cayó respecto al promedio de 24h. Por sí solo no indica una falla: puede ser un ciclo normal del mercado. Escala solo si coincide con ETLFailed, ETLStale o DataFreshness*."
+
+      - alert: ETLDurationTooLong
+        expr: histogram_quantile(0.95, sum(rate(etl_duration_seconds_bucket[1h])) by (le)) > 1800
+        for: 10m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Duración anómala del proceso ETL (> 30 minutos)"
+          description: "El pipeline de extracción y carga está tardando más de 30 minutos en completar su ciclo."

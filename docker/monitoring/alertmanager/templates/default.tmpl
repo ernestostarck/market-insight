@@ -1,0 +1,48 @@
+{{/* Grafana is served next to Alertmanager (.../grafana/ vs .../alertmanager/); locally it is :3000. */}}
+{{ define "grafana.url" }}{{ if match "/alertmanager/?$" .ExternalURL }}{{ reReplaceAll "/alertmanager/?$" "/grafana/" .ExternalURL }}{{ else }}http://localhost:3000/{{ end }}{{ end }}
+
+{{ define "slack.default.title" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .CommonLabels.alertname }} ({{ .CommonLabels.severity }})
+{{ end }}
+
+{{ define "slack.default.text" }}
+{{ range .Alerts }}
+*Alert:* {{ .Annotations.summary }}
+*Severity:* `{{ .Labels.severity }}`
+*Service:* `{{ .Labels.service }}`
+*Description:* {{ .Annotations.description }}
+*Dashboard:* <{{ template "grafana.url" $ }}|Grafana Monitoring>
+{{ end }}
+{{ end }}
+
+{{ define "email.default.subject" }}
+[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} - {{ .CommonLabels.service }} ({{ .CommonLabels.severity }})
+{{ end }}
+
+{{ define "email.default.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .alert-box { padding: 12px; margin-bottom: 12px; border-left: 4px solid #f44336; background: #fff3f3; }
+    .resolved { border-left-color: #4caf50; background: #f1f8e9; }
+    .severity-critical { color: #d32f2f; font-weight: bold; }
+    .severity-warning { color: #f57c00; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Alert Notification: {{ .CommonLabels.alertname }}</h2>
+  <p>Status: <strong>{{ .Status | toUpper }}</strong></p>
+  {{ range .Alerts }}
+  <div class="alert-box {{ if eq .Status "resolved" }}resolved{{ end }}">
+    <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+    <p><strong>Severity:</strong> <span class="severity-{{ .Labels.severity }}">{{ .Labels.severity }}</span></p>
+    <p><strong>Service:</strong> {{ .Labels.service }}</p>
+    <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+    <p><a href="{{ template "grafana.url" $ }}">Open Grafana Dashboard</a></p>
+  </div>
+  {{ end }}
+</body>
+</html>
+{{ end }}

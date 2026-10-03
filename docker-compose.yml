@@ -1,0 +1,357 @@
+name: mercadoinsight
+
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+    env_file:
+      - ./docker/compose/.env.database
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-market_insight}
+      POSTGRES_USER: ${POSTGRES_USER:-market_insight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-market_insight_dev}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mercadoinsight
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U market_insight -d market_insight"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    env_file:
+      - ./docker/compose/.env.redis
+    command: ["sh", "-c", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - mercadoinsight
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    env_file:
+      - ./docker/compose/.env.minio
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - mercadoinsight
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    env_file:
+      - ./docker/compose/.env.minio
+    depends_on:
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./docker/minio/bootstrap.sh:/bootstrap.sh:ro
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    networks:
+      - mercadoinsight
+    restart: "no"
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./docker/compose/.env.backend
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://localhost:80}
+      CHILECOMPRA_API_KEY: ${CHILECOMPRA_API_KEY:-replace_with_your_real_key}
+      CHILECOMPRA_BASE_URL: ${CHILECOMPRA_BASE_URL:-https://api.mercadopublico.cl/servicios/v1/publico}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://market_insight_app:market_insight_app_dev@postgres:5432/market_insight}
+      REDIS_URL: ${REDIS_URL:-redis://:market_insight_redis_dev@redis:6379/0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-marketinsight}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-marketinsight-dev-password}
+      MINIO_BUCKET_PUBLIC_DOCUMENTS: ${MINIO_BUCKET_PUBLIC_DOCUMENTS:-documents-public}
+      MINIO_BUCKET_PRIVATE_DOCUMENTS: ${MINIO_BUCKET_PRIVATE_DOCUMENTS:-documents-private}
+      MINIO_BUCKET_ATTACHMENTS: ${MINIO_BUCKET_ATTACHMENTS:-attachments}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  nlp-worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker
+    env_file:
+      - ./docker/compose/.env.backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  # ETL consumer + scheduler. Without them the "market-insight" queue has no consumer and
+  # nothing ever ingests, so etl_runs stays empty and data freshness can never be measured.
+  etl-worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker
+    command: ["celery", "-A", "app.worker.celery_app:celery_app", "worker", "--loglevel=INFO", "--queues=market-insight", "--pool=threads", "--concurrency=2", "--hostname=etl@%h"]
+    env_file:
+      - ./docker/compose/.env.backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  etl-beat:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker
+    command: ["celery", "-A", "app.worker.celery_app:celery_app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    healthcheck:
+      disable: true
+    env_file:
+      - ./docker/compose/.env.backend
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+    ports:
+      - "80:80"
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:8.12.0
+    env_file:
+      - ./docker/compose/.env.pgadmin
+    environment:
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  redisinsight:
+    image: redis/redisinsight:2.64.0
+    ports:
+      - "127.0.0.1:5540:5540"
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    environment:
+      DATA_SOURCE_NAME: "postgresql://market_insight:market_insight_dev@postgres:5432/market_insight?sslmode=disable"
+    ports:
+      - "127.0.0.1:9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.61.0
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "market_insight_redis_dev"
+    ports:
+      - "127.0.0.1:9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    volumes:
+      - ./docker/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    env_file:
+      - ./docker/compose/.env.grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - "127.0.0.1:8088:8080"
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./docker/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./docker/monitoring/alertmanager/templates:/etc/alertmanager/templates:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.0.0
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./docker/monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    networks:
+      - mercadoinsight
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - ./docker/monitoring/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - mercadoinsight
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  pgadmin_data:
+  redisinsight_data:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+  loki_data:
+
+networks:
+  mercadoinsight:
+    driver: bridge

@@ -1,0 +1,11 @@
+{
+  "version": "taxonomy-2026.1",
+  "categories": [
+    {"code": "technology", "name": "Tecnología", "description": "Software, hardware, comunicaciones y servicios digitales.", "subcategories": [{"code": "hardware", "name": "Hardware", "description": "Computadores, periféricos y equipamiento tecnológico."}, {"code": "software", "name": "Software", "description": "Licencias, plataformas y desarrollo de software."}]},
+    {"code": "health", "name": "Salud", "description": "Equipamiento, insumos y servicios destinados a la salud.", "subcategories": [{"code": "medical-equipment", "name": "Equipamiento médico", "description": "Dispositivos y equipamiento clínico."}, {"code": "medical-supplies", "name": "Insumos médicos", "description": "Materiales y consumibles clínicos."}]},
+    {"code": "construction", "name": "Construcción", "description": "Obras, mantención de infraestructura y materiales de construcción.", "subcategories": [{"code": "civil-works", "name": "Obras civiles", "description": "Construcción, reparación y mejoramiento de infraestructura."}, {"code": "construction-materials", "name": "Materiales de construcción", "description": "Materiales y suministros para obras."}]},
+    {"code": "transport", "name": "Transporte", "description": "Vehículos, logística, movilidad y sus servicios asociados.", "subcategories": [{"code": "vehicles", "name": "Vehículos", "description": "Vehículos, repuestos y accesorios."}, {"code": "logistics", "name": "Logística", "description": "Transporte de carga, distribución y servicios logísticos."}]},
+    {"code": "professional-services", "name": "Servicios profesionales", "description": "Consultorías, asesorías y servicios especializados.", "subcategories": [{"code": "consulting", "name": "Consultoría", "description": "Asesorías y estudios especializados."}, {"code": "training", "name": "Capacitación", "description": "Formación, talleres y entrenamiento."}]},
+    {"code": "general-supplies", "name": "Suministros generales", "description": "Bienes de consumo y suministros operacionales.", "subcategories": [{"code": "office-supplies", "name": "Útiles de oficina", "description": "Papelería y artículos de oficina."}, {"code": "cleaning-supplies", "name": "Aseo", "description": "Productos y materiales de limpieza."}]}
+  ]
+}

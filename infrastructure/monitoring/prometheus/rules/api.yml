@@ -1,0 +1,42 @@
+groups:
+  - name: api_alerts
+    rules:
+      - alert: APIUnavailable
+        expr: up{job="backend"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "API FastAPI de MercadoInsight no disponible"
+          description: "El backend de FastAPI no responde a las solicitudes de monitoreo por más de 30 segundos."
+
+      - alert: HighAPIErrorRate5xx
+        expr: (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Tasa elevada de errores 5xx en la API (> 5%)"
+          description: "La proporción de respuestas HTTP 5xx supera el 5% de las solicitudes en los últimos 5 minutos."
+
+      - alert: HighAPILatencyP95
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Latencia P95 elevada en la API (> 500ms)"
+          description: "El 95% de las solicitudes a la API superan los 500 milisegundos de tiempo de respuesta."
+
+      - alert: HighAPILatencyP99
+        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Latencia P99 elevada en la API (> 1.5s)"
+          description: "El percentil 99 de las solicitudes a la API supera 1.5 segundos."

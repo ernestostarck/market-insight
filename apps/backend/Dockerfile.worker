@@ -1,0 +1,21 @@
+FROM python:3.13-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app/backend
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./pyproject.toml
+COPY app ./app
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir ".[dev]"
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=20s \
+    CMD celery -A app.worker.celery_app:celery_app inspect ping -t 5 || exit 1
+
+CMD ["celery", "-A", "app.worker.celery_app:celery_app", "worker", "--loglevel=INFO", "--queues=nlp", "--pool=threads", "--concurrency=2"]

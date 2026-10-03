@@ -1,0 +1,62 @@
+groups:
+  - name: data_quality_alerts
+    rules:
+      - alert: DataFreshnessWarning
+        expr: data_freshness_seconds > 64800
+        for: 30m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Antigüedad de datos en estado de advertencia (> 18 horas)"
+          description: "La diferencia entre la hora actual y la fecha del último dato procesado supera las 18 horas (retraso en ciclo habitual de ChileCompra o inicio de fin de semana)."
+
+      - alert: DataFreshnessCritical
+        expr: data_freshness_seconds > 129600
+        for: 15m
+        labels:
+          severity: critical
+          team: data-engineering
+        annotations:
+          summary: "Antigüedad crítica de datos (> 36 horas)"
+          description: "La diferencia entre la hora actual y el último dato procesado supera las 36 horas. Requiere triage: verificar primero el pipeline ETL y luego, por separado, la disponibilidad técnica de ChileCompra (components.chilecompra en /api/v1/system/status). La antigüedad de los datos por sí sola no prueba que ChileCompra esté caído."
+
+      - alert: DataQualityScoreDegraded
+        expr: data_quality_score < 95.0
+        for: 1h
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Degradación en el índice de calidad de datos (< 95%)"
+          description: "El puntaje consolidado de completitud y validación de campos obligatorios ha caído por debajo del umbral del 95%."
+
+      - alert: DataQualityScoreCritical
+        expr: data_quality_score < 85.0
+        for: 15m
+        labels:
+          severity: critical
+          team: data-engineering
+        annotations:
+          summary: "Degradación crítica en el índice de calidad de datos (< 85%)"
+          description: "El puntaje consolidado de calidad ha caído por debajo del umbral crítico del 85%, indicando anomalías severas en el lote ingerido."
+
+      - alert: AbnormalDuplicateRecords
+        expr: increase(duplicate_records_total[1h]) > 50
+        for: 15m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Pico de registros duplicados detectados"
+          description: "El proceso de normalización ha identificado más de 50 registros duplicados en la última hora."
+
+      - alert: HighInvalidRecordsRate
+        expr: rate(invalid_records_total[15m]) > 5
+        for: 10m
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Tasa elevada de registros con violaciones de calidad"
+          description: "Se detectan violaciones recurrentes en campos críticos (RUT, fecha, montos o IDs)."

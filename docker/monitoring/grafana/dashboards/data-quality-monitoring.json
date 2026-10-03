@@ -1,0 +1,165 @@
+{
+  "uid": "data-quality-monitoring",
+  "title": "MercadoInsight — Data Quality & Freshness Monitoring",
+  "tags": ["market-insight", "data-quality", "freshness"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Data Quality KPIs",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "gauge",
+      "title": "Data Quality Score (Licitaciones)",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 5 },
+      "targets": [{ "expr": "data_quality_score{pipeline=\"licitaciones\"} or 100", "legendFormat": "DQ Score" }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 85, "color": "yellow" },
+              { "value": 95, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Data Freshness (Antigüedad de Datos)",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 5 },
+      "targets": [{ "expr": "data_freshness_seconds", "legendFormat": "Delta segundos" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 64800, "color": "yellow" },
+              { "value": 129600, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Total Registros Duplicados",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 5 },
+      "targets": [{ "expr": "sum(duplicate_records_total)", "legendFormat": "Duplicados" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 10, "color": "yellow" },
+              { "value": 50, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Total Registros Inválidos",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 5 },
+      "targets": [{ "expr": "sum(invalid_records_total)", "legendFormat": "Inválidos" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 5, "color": "yellow" },
+              { "value": 20, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Evolución y Tipos de Violación de Calidad",
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Evolución de Data Quality Score",
+      "gridPos": { "x": 0, "y": 7, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "data_quality_score",
+          "legendFormat": "{{pipeline}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "none"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Violaciones por Motivo (RUT, Fecha, Monto, ID, Proveedor)",
+      "gridPos": { "x": 12, "y": 7, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate(invalid_records_total[5m]))",
+          "legendFormat": "{{reason}}/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tasa de Registros Duplicados por Segundo",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (pipeline) (rate(duplicate_records_total[5m]))",
+          "legendFormat": "{{pipeline}} dups/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tendencia Histórica de Data Freshness (Horas)",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "data_freshness_seconds / 3600",
+          "legendFormat": "Horas de retraso"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "h" }
+      }
+    }
+  ]
+}

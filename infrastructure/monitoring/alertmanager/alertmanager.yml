@@ -1,0 +1,63 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alerts@marketinsight.cl'
+  smtp_auth_username: 'alerts@marketinsight.cl'
+  smtp_auth_password: 'smtp_password'
+  smtp_require_tls: true
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  group_by: ['alertname', 'service', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default-webhook'
+  routes:
+    # Critical alerts -> immediate dispatch
+    - match:
+        severity: critical
+      receiver: 'critical-notifications'
+      continue: true
+
+    # Warning alerts -> warning channel
+    - match:
+        severity: warning
+      receiver: 'warning-notifications'
+      continue: false
+
+    # Info alerts -> logs only
+    - match:
+        severity: info
+      receiver: 'info-log-sink'
+
+inhibit_rules:
+  # Inhibit warning alerts if a critical alert for the same service is already firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['service']
+
+receivers:
+  - name: 'default-webhook'
+    webhook_configs:
+      - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+        send_resolved: true
+
+  - name: 'critical-notifications'
+    webhook_configs:
+      - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+        send_resolved: true
+
+  - name: 'warning-notifications'
+    webhook_configs:
+      - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+        send_resolved: true
+
+  - name: 'info-log-sink'
+    webhook_configs:
+      - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+        send_resolved: false

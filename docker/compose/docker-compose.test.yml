@@ -1,0 +1,122 @@
+# Test environment: isolated, disposable stack that runs the backend test-suite
+# and verifies health checks, logs and minimal metrics.
+#
+#   bash infrastructure/scripts/test-env.sh        # full cycle (up, checks, pytest, logs, down)
+#
+# Or by hand (always with a dedicated project name so it never touches the dev stack):
+#   docker compose -p mercadoinsight-test -f docker-compose.yml -f docker/compose/docker-compose.test.yml up -d --build
+#   docker compose -p mercadoinsight-test -f docker-compose.yml -f docker/compose/docker-compose.test.yml --profile test run --rm test-runner
+#
+# Nothing is published on the host, so it can run next to a dev stack.
+x-logging: &json-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    ports: !reset []
+    logging: *json-logging
+
+  redis:
+    ports: !reset []
+    logging: *json-logging
+
+  minio:
+    ports: !reset []
+
+  backend:
+    image: mercadoinsight-backend:test
+    ports: !reset []
+    logging: *json-logging
+    environment:
+      ENVIRONMENT: test
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+      RATE_LIMIT_ENABLED: "false"
+      OTEL_ENABLED: "false"
+      SENTRY_DSN: ""
+
+  # The test stack must not call the real ChileCompra API on a schedule.
+  etl-worker:
+    profiles: ["disabled"]
+
+  etl-beat:
+    profiles: ["disabled"]
+
+  nlp-worker:
+    logging: *json-logging
+    command: ["celery", "-A", "app.worker.celery_app:celery_app", "worker", "--loglevel=INFO", "--queues=nlp", "--pool=threads", "--concurrency=1"]
+    environment:
+      ENVIRONMENT: test
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+      OTEL_ENABLED: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1.5G
+
+  # Minimal metrics: Prometheus scrapes the API and the NLP worker, and talks to Alertmanager (see prometheus.test.yml).
+  prometheus:
+    ports: !reset []
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=1d
+    volumes:
+      - ./docker/monitoring/prometheus/prometheus.test.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/monitoring/prometheus/tests:/etc/prometheus/tests:ro
+
+  # Real Alertmanager with short timers so delivery, dedup and silencing are testable.
+  alertmanager:
+    ports: !reset []
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes: !override
+      - ./docker/monitoring/alertmanager/alertmanager.test.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./docker/monitoring/alertmanager/templates:/etc/alertmanager/templates:ro
+
+  test-runner:
+    profiles: ["test"]
+    image: mercadoinsight-backend:test
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: test
+      RATE_LIMIT_ENABLED: "false"
+      OTEL_ENABLED: "false"
+      SENTRY_DSN: ""
+    volumes:
+      - ./apps/backend/tests:/app/backend/tests:ro
+      - ./test-results:/app/backend/test-results
+    command: ["python", "-m", "pytest", "tests", "-q", "-p", "no:cacheprovider", "--junitxml=test-results/junit.xml"]
+    networks:
+      - mercadoinsight
+    restart: "no"
+
+  # Not needed to validate the API; kept out of the test stack.
+  frontend:
+    profiles: ["disabled"]
+  nginx:
+    profiles: ["disabled"]
+  pgadmin:
+    profiles: ["disabled"]
+  redisinsight:
+    profiles: ["disabled"]
+  postgres-exporter:
+    profiles: ["disabled"]
+  redis-exporter:
+    profiles: ["disabled"]
+  grafana:
+    profiles: ["disabled"]
+  cadvisor:
+    profiles: ["disabled"]
+  loki:
+    profiles: ["disabled"]
+  promtail:
+    profiles: ["disabled"]

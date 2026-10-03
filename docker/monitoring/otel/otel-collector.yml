@@ -1,0 +1,26 @@
+# OpenTelemetry Collector (production). Receives OTLP/gRPC from the API on :4317
+# (internal network only). Spans are summarised in the collector log, which Promtail
+# ships to Loki. To keep traces in a backend, add an exporter (e.g. otlp -> Tempo/Jaeger)
+# under `exporters` and reference it in the traces pipeline.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+  batch: {}
+
+exporters:
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]

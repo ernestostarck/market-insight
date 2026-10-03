@@ -1,0 +1,174 @@
+{
+  "uid": "redis-monitoring",
+  "title": "MercadoInsight — Redis Cache & Broker Monitoring",
+  "tags": ["market-insight", "redis", "cache"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Redis Memory & Pressure",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Redis Status",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "targets": [{ "expr": "up{job=\"redis-exporter\"}", "legendFormat": "Status" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ]
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Memoria Utilizada",
+      "gridPos": { "x": 4, "y": 1, "w": 5, "h": 4 },
+      "targets": [{ "expr": "redis_memory_used_bytes", "legendFormat": "Used Memory" }],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Memoria Máxima (Maxmemory)",
+      "gridPos": { "x": 9, "y": 1, "w": 5, "h": 4 },
+      "targets": [{ "expr": "redis_memory_max_bytes", "legendFormat": "Max Memory" }],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Presión de Memoria (%)",
+      "gridPos": { "x": 14, "y": 1, "w": 5, "h": 4 },
+      "targets": [
+        {
+          "expr": "(redis_memory_used_bytes / (redis_memory_max_bytes > 0 or (redis_memory_used_bytes + 104857600))) * 100",
+          "legendFormat": "Memory Pressure %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 70, "color": "yellow" },
+              { "value": 85, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Hit Rate (%)",
+      "gridPos": { "x": 19, "y": 1, "w": 5, "h": 4 },
+      "targets": [
+        {
+          "expr": "(rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]) + 0.001)) * 100",
+          "legendFormat": "Hit Rate %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 60, "color": "yellow" },
+              { "value": 85, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Clientes & Operaciones",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Clientes Conectados & Bloqueados",
+      "gridPos": { "x": 0, "y": 6, "w": 8, "h": 7 },
+      "targets": [
+        { "expr": "redis_connected_clients", "legendFormat": "Connected Clients" },
+        { "expr": "redis_blocked_clients", "legendFormat": "Blocked Clients" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Comandos Procesados por Segundo",
+      "gridPos": { "x": 8, "y": 6, "w": 8, "h": 7 },
+      "targets": [
+        { "expr": "rate(redis_commands_processed_total[5m])", "legendFormat": "Commands/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Claves Desalojadas (Evicted Keys)",
+      "gridPos": { "x": 16, "y": 6, "w": 8, "h": 7 },
+      "targets": [
+        { "expr": "rate(redis_evicted_keys_total[5m])", "legendFormat": "Evicted Keys/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Memoria RSS & Uptime",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Memoria RSS vs Memoria Usada",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 7 },
+      "targets": [
+        { "expr": "redis_memory_used_rss_bytes", "legendFormat": "RSS Memory" },
+        { "expr": "redis_memory_used_bytes", "legendFormat": "Used Memory" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Redis Uptime & Comandos Totales",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 7 },
+      "targets": [
+        { "expr": "redis_uptime_in_seconds", "legendFormat": "Uptime (segundos)" },
+        { "expr": "redis_commands_processed_total", "legendFormat": "Comandos Totales" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    }
+  ]
+}

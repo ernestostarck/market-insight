@@ -1,0 +1,362 @@
+# Staging environment.
+#
+#   docker compose --env-file .env.staging -f docker-compose.yml -f docker/compose/docker-compose.staging.yml up -d --build
+#
+# Design:
+#   * Mirrors production topology: NGINX is the sole entrypoint.
+#   * PostgreSQL, Redis, MinIO, API, workers, Prometheus, Loki: internal network only.
+#   * Grafana (/grafana/) and Alertmanager (/alertmanager/) behind NGINX basic auth.
+#   * No dev tools (pgAdmin, RedisInsight disabled).
+#   * Dev .env.* files never loaded (env_file: !reset []).
+#   * Every variable supplied by --env-file .env.staging.
+x-logging: &json-logging
+  driver: json-file
+  options:
+    max-size: "15m"
+    max-file: "3"
+
+x-staging-app-env: &staging-app-env
+  APP_ENV: staging
+  ENVIRONMENT: staging
+  LOG_LEVEL: INFO
+  LOG_FORMAT: json
+  SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required in staging (python -c "import secrets; print(secrets.token_hex(32))")}
+  DATABASE_URL: postgresql+psycopg://market_insight_app:${MARKET_INSIGHT_APP_PASSWORD:?MARKET_INSIGHT_APP_PASSWORD is required}@postgres:5432/market_insight
+  REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+  MINIO_ENDPOINT: minio:9000
+  MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+  MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+  MINIO_BUCKET_PUBLIC_DOCUMENTS: documents-public
+  MINIO_BUCKET_PRIVATE_DOCUMENTS: documents-private
+  MINIO_BUCKET_ATTACHMENTS: attachments
+  CHILECOMPRA_API_KEY: ${CHILECOMPRA_API_KEY:?CHILECOMPRA_API_KEY is required}
+  BACKEND_CORS_ORIGINS: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required (e.g. https://staging.example.com)}
+  RATE_LIMIT_ENABLED: "true"
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: staging
+  SENTRY_TRACES_SAMPLE_RATE: "0.5"
+  SENTRY_PROFILES_SAMPLE_RATE: "0.0"
+  OTEL_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+  ALERT_WEBHOOK_TOKEN: ${ALERT_WEBHOOK_TOKEN:?ALERT_WEBHOOK_TOKEN is required (shared with Alertmanager)}
+
+configs:
+  alertmanager_staging:
+    content: |
+      global:
+        resolve_timeout: 5m
+        smtp_smarthost: '${ALERT_SMTP_HOST:-smtp.example.com:587}'
+        smtp_from: '${ALERT_EMAIL_FROM:-alerts@staging.example.com}'
+        smtp_auth_username: '${ALERT_SMTP_USER:-staging}'
+        smtp_auth_password_file: /run/secrets/alert_smtp_password
+        smtp_require_tls: true
+
+      templates:
+        - '/etc/alertmanager/templates/*.tmpl'
+
+      route:
+        group_by: ['alertname', 'team']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 12h
+        receiver: 'info-log-sink'
+        routes:
+          - matchers: ['severity="critical"']
+            receiver: 'critical-notifications'
+          - matchers: ['severity="warning"']
+            receiver: 'warning-notifications'
+            repeat_interval: 24h
+          - matchers: ['severity="info"']
+            receiver: 'info-log-sink'
+
+      inhibit_rules:
+        - source_matchers: ['severity="critical"']
+          target_matchers: ['severity="warning"']
+          equal: ['team']
+
+      receivers:
+        - name: 'critical-notifications'
+          email_configs:
+            - to: '${ALERT_EMAIL_TO:-admin@staging.example.com}'
+              send_resolved: true
+              headers:
+                Subject: '[STAGING] {{ template "email.default.subject" . }}'
+              html: '{{ template "email.default.html" . }}'
+          webhook_configs:
+            - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+              send_resolved: true
+              http_config:
+                authorization:
+                  type: Bearer
+                  credentials_file: /run/secrets/alert_webhook_token
+
+        - name: 'warning-notifications'
+          email_configs:
+            - to: '${ALERT_EMAIL_TO:-admin@staging.example.com}'
+              send_resolved: true
+              headers:
+                Subject: '[STAGING] {{ template "email.default.subject" . }}'
+
+        - name: 'info-log-sink'
+          webhook_configs:
+            - url: 'http://backend:8000/api/v1/monitoring/alerts/webhook'
+              send_resolved: false
+              http_config:
+                authorization:
+                  type: Bearer
+                  credentials_file: /run/secrets/alert_webhook_token
+
+secrets:
+  alert_webhook_token:
+    environment: ALERT_WEBHOOK_TOKEN
+  alert_smtp_password:
+    environment: ALERT_SMTP_PASSWORD
+
+services:
+  postgres:
+    env_file: !reset []
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      POSTGRES_DB: market_insight
+      POSTGRES_USER: market_insight
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      MARKET_INSIGHT_ADMIN_PASSWORD: ${MARKET_INSIGHT_ADMIN_PASSWORD:?MARKET_INSIGHT_ADMIN_PASSWORD is required}
+      MARKET_INSIGHT_APP_PASSWORD: ${MARKET_INSIGHT_APP_PASSWORD:?MARKET_INSIGHT_APP_PASSWORD is required}
+      MARKET_INSIGHT_READONLY_PASSWORD: ${MARKET_INSIGHT_READONLY_PASSWORD:?MARKET_INSIGHT_READONLY_PASSWORD is required}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1.5G
+
+  redis:
+    env_file: !reset []
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  minio:
+    env_file: !reset []
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+
+  minio-init:
+    env_file: !reset []
+    networks:
+      - private-net
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_BUCKET_DOCUMENTS: documents
+      MINIO_BUCKET_ATTACHMENTS: attachments
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.prod
+    ports: !reset []
+    env_file: !reset []
+    logging: *json-logging
+    networks:
+      - public-net
+      - private-net
+    environment:
+      <<: *staging-app-env
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1.5G
+
+  nlp-worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker.prod
+    env_file: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      <<: *staging-app-env
+      LOG_LEVEL: INFO
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1.5G
+
+  etl-worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker.prod
+    env_file: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      <<: *staging-app-env
+      LOG_LEVEL: INFO
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1.5G
+
+  etl-beat:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.worker.prod
+    env_file: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    environment:
+      <<: *staging-app-env
+      LOG_LEVEL: WARNING
+      OTEL_ENABLED: "false"
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile.prod
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - public-net
+
+  nginx:
+    logging: *json-logging
+    networks:
+      - public-net
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./docker/nginx/prod/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+      - ./docker/nginx/auth:/etc/nginx/auth:ro
+    depends_on:
+      grafana:
+        condition: service_started
+      alertmanager:
+        condition: service_started
+
+  pgadmin:
+    profiles: ["disabled"]
+  redisinsight:
+    profiles: ["disabled"]
+
+  postgres-exporter:
+    ports: !reset []
+    networks:
+      - private-net
+    environment:
+      DATA_SOURCE_NAME: postgresql://market_insight:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/market_insight?sslmode=disable
+
+  redis-exporter:
+    ports: !reset []
+    networks:
+      - private-net
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+  cadvisor:
+    ports: !reset []
+    networks:
+      - private-net
+
+  prometheus:
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+
+  grafana:
+    ports: !reset []
+    env_file: !reset []
+    logging: *json-logging
+    networks:
+      - public-net
+      - private-net
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SERVER_ROOT_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+
+  alertmanager:
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - public-net
+      - private-net
+    configs:
+      - source: alertmanager_staging
+        target: /etc/alertmanager/alertmanager.yml
+    secrets:
+      - alert_webhook_token
+      - alert_smtp_password
+    volumes: !override
+      - ./docker/monitoring/alertmanager/templates:/etc/alertmanager/templates:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.external-url=${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}/alertmanager/
+      - --web.route-prefix=/
+
+  loki:
+    ports: !reset []
+    logging: *json-logging
+    networks:
+      - private-net
+
+  promtail:
+    logging: *json-logging
+    networks:
+      - private-net
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.104.0
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./docker/monitoring/otel/otel-collector.yml:/etc/otelcol/config.yml:ro
+    logging: *json-logging
+    networks:
+      - private-net
+    restart: unless-stopped
+
+networks:
+  public-net:
+    name: mercadoinsight_staging_public_net
+    driver: bridge
+  private-net:
+    name: mercadoinsight_staging_private_net
+    driver: bridge

@@ -1,0 +1,59 @@
+# Development environment.
+#
+#   docker compose -f docker-compose.yml -f docker/compose/docker-compose.dev.yml up -d
+#
+# Includes: Docker, PostgreSQL, Redis, Prometheus (+ exporters), Grafana, health checks,
+# pgAdmin/RedisInsight. Alertmanager, Loki and Promtail are opt-in:
+#   ... --profile observability-full up -d
+# Every published port is bound to 127.0.0.1 by the base file.
+services:
+  backend:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/backend/app"]
+    volumes:
+      - ./apps/backend:/app/backend
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      LOG_FORMAT: console
+      RATE_LIMIT_ENABLED: "false"
+      OTEL_ENABLED: "false"
+      # Bind mounts from Windows/macOS do not deliver inotify events.
+      WATCHFILES_FORCE_POLLING: "true"
+
+  nlp-worker:
+    command: ["celery", "-A", "app.worker.celery_app:celery_app", "worker", "--loglevel=DEBUG", "--queues=nlp", "--pool=threads", "--concurrency=2"]
+    volumes:
+      - ./apps/backend:/app/backend
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      LOG_FORMAT: console
+      OTEL_ENABLED: "false"
+
+  etl-worker:
+    command: ["celery", "-A", "app.worker.celery_app:celery_app", "worker", "--loglevel=DEBUG", "--queues=market-insight", "--pool=threads", "--concurrency=2", "--hostname=etl@%h"]
+    volumes:
+      - ./apps/backend:/app/backend
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      LOG_FORMAT: console
+      OTEL_ENABLED: "false"
+
+  etl-beat:
+    volumes:
+      - ./apps/backend:/app/backend
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      LOG_FORMAT: console
+      OTEL_ENABLED: "false"
+
+  alertmanager:
+    profiles: ["observability-full"]
+
+  loki:
+    profiles: ["observability-full"]
+
+  promtail:
+    profiles: ["observability-full"]

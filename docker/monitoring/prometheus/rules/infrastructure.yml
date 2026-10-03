@@ -1,0 +1,94 @@
+groups:
+  - name: infrastructure_alerts
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: devops
+        annotations:
+          summary: "Instancia monitorizada caída: {{ $labels.instance }}"
+          description: "El servicio {{ $labels.job }} en {{ $labels.instance }} lleva más de 1 minuto sin responder al scrape de Prometheus."
+
+      - alert: PostgreSQLUnavailable
+        expr: up{job="postgres-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgres
+          team: database
+        annotations:
+          summary: "PostgreSQL no disponible"
+          description: "El exportador de métricas de PostgreSQL no responde; el motor de base de datos principal podría estar caído."
+
+      - alert: RedisUnavailable
+        expr: up{job="redis-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+          team: devops
+        annotations:
+          summary: "Redis no disponible"
+          description: "El exportador de métricas de Redis no responde; la capa de caché y broker de tareas podría estar caída."
+
+      - alert: HostHighCpuLoad
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Uso elevado de CPU en {{ $labels.instance }}"
+          description: "La utilización media de CPU supera el 85% durante más de 5 minutos."
+
+      - alert: ContainerMemoryPressure
+        expr: container_memory_usage_bytes{container_name!=""} / container_spec_memory_limit_bytes{container_name!=""} * 100 > 85
+        for: 3m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Presión de memoria en contenedor {{ $labels.container_name }}"
+          description: "El contenedor {{ $labels.container_name }} está utilizando más del 85% de su memoria asignada."
+
+      - alert: PostgreSQLConnectionSaturation
+        expr: pg_stat_database_numbackends / pg_settings_max_connections * 100 > 85
+        for: 5m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "Saturación de conexiones en PostgreSQL (>85%)"
+          description: "El número de conexiones activas excede el 85% del límite configurado en max_connections."
+
+      - alert: PostgreSQLDeadlocksDetected
+        expr: rate(pg_stat_database_deadlocks[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Deadlocks detectados en PostgreSQL: {{ $labels.datname }}"
+          description: "Se han detectado transacciones bloqueadas en interbloqueo (deadlock) en la base de datos {{ $labels.datname }}."
+
+      - alert: RedisMemoryPressure
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Presión de memoria en Redis (>85%)"
+          description: "Redis está utilizando más del 85% de la memoria máxima configurada (maxmemory)."
+
+      - alert: RedisBlockedClients
+        expr: redis_blocked_clients > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Clientes bloqueados en Redis: {{ $value }}"
+          description: "Hay más de 5 clientes bloqueados esperando en llamadas de lista o transacciones de Redis."

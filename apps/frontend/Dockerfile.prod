@@ -1,0 +1,28 @@
+# ==============================================================================
+# Multi-stage Production Dockerfile for MercadoInsight React Frontend
+# ==============================================================================
+
+# --- Stage 1: Build static assets ---
+FROM node:20-alpine AS build
+
+WORKDIR /app/frontend
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# --- Stage 2: Minimal static server ---
+FROM nginx:1.27-alpine AS runtime
+
+# Copy compiled assets from builder
+COPY --from=build /app/frontend/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget -q --spider http://localhost:80/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

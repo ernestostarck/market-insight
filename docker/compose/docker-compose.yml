@@ -1,0 +1,4 @@
+# Reserved for future compose composition.
+version: '3.9'
+
+services: {}

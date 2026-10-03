@@ -1,0 +1,42 @@
+groups:
+  - name: ai_cost_and_governance_alerts
+    rules:
+      - alert: AICostSpikeDaily
+        expr: sum(increase(ai_rag_cost_usd_total[24h])) > 10.0
+        for: 5m
+        labels:
+          severity: warning
+          team: ai-ops
+        annotations:
+          summary: "Gasto de inferencia de IA elevado en las últimas 24 horas"
+          description: "El costo acumulado de modelos LLM ha aumentado más de $10 USD en las últimas 24 horas (actual: ${{ $value | printf \"%.2f\" }} USD)."
+
+      - alert: AIHighTokenConsumptionRate
+        expr: sum(rate(ai_rag_tokens_total[5m])) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: ai-ops
+        annotations:
+          summary: "Tasa anormal de consumo de tokens LLM"
+          description: "La tasa de consumo de tokens supera los 1,000 tokens/segundo durante más de 5 minutos (actual: {{ $value | printf \"%.1f\" }} tokens/s)."
+
+      - alert: AIGroundingFailureRateHigh
+        expr: (sum(rate(ai_grounding_score_bucket{le="0.5", grounded="false"}[15m])) / (sum(rate(ai_grounding_score_count[15m])) + 0.001)) * 100 > 15
+        for: 10m
+        labels:
+          severity: critical
+          team: ai-ops
+        annotations:
+          summary: "Tasa elevada de respuestas no fundamentadas (Alucinaciones) en RAG"
+          description: "Más del 15% de las respuestas generadas por el asistente IA en los últimos 15 minutos tienen bajo grounding fáctico (actual: {{ $value | printf \"%.1f\" }}%)."
+
+      - alert: AICostlyQueriesSpike
+        expr: sum(increase(ai_costly_queries_total[1h])) > 20
+        for: 5m
+        labels:
+          severity: warning
+          team: ai-ops
+        annotations:
+          summary: "Incremento en consultas AI anómalas o de alto costo"
+          description: "Se han detectado más de 20 consultas que superan los umbrales de presupuesto o longitud de tokens en la última hora."

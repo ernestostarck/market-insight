@@ -1,0 +1,74 @@
+groups:
+  - name: slo_recording_rules
+    interval: 30s
+    rules:
+      - record: sli:http_availability:ratio_rate5m
+        expr: |
+          sum(rate(http_requests_total{status!~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(http_requests_total[5m])), 0.001)
+
+      - record: sli:http_availability:ratio_rate1h
+        expr: |
+          sum(rate(http_requests_total{status!~"5.."}[1h]))
+          /
+          clamp_min(sum(rate(http_requests_total[1h])), 0.001)
+
+      - record: sli:http_latency_p95:seconds_rate5m
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+
+      - record: sli:etl_success:ratio_rate24h
+        expr: |
+          sum(rate(etl_runs_total{status="success"}[24h]))
+          /
+          clamp_min(sum(rate(etl_runs_total[24h])), 0.001)
+
+      - record: sli:data_freshness_slo:ratio_rate24h
+        expr: |
+          avg_over_time((data_freshness_seconds <= bool 86400)[24h:1m])
+
+  - name: slo_alert_rules
+    rules:
+      - alert: SLOAvailabilityBurnRateCritical
+        expr: |
+          (1 - sli:http_availability:ratio_rate5m) > (14.4 * 0.005)
+          and
+          (1 - sli:http_availability:ratio_rate1h) > (14.4 * 0.005)
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Consumo crítico de Error Budget de Disponibilidad (Burn Rate 14.4x)"
+          description: "La tasa de errores HTTP 5xx supera el 7.2%, consumiendo rápidamente el presupuesto de error mensual de disponibilidad (SLO 99.5%)."
+
+      - alert: SLOLatencyBudgetExhaustion
+        expr: sli:http_latency_p95:seconds_rate5m > 0.8
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Latencia P95 de API sostenidamente degradada (> 800ms)"
+          description: "El percentil 95 de latencia ha superado los 800ms durante 15 minutos continuos, amenazando el objetivo de rendimiento."
+
+      - alert: SLOETLSuccessRateDegraded
+        expr: sli:etl_success:ratio_rate24h < 0.98
+        for: 1h
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Tasa de éxito de ETL inferior al SLO (< 98%)"
+          description: "La proporción de ejecuciones exitosas de ingesta ha caído por debajo del objetivo del 98% en las últimas 24 horas."
+
+      - alert: SLODataFreshnessDegraded
+        expr: sli:data_freshness_slo:ratio_rate24h < 0.95
+        for: 2h
+        labels:
+          severity: warning
+          team: data-engineering
+        annotations:
+          summary: "Cumplimiento de frescura de datos inferior al SLO (< 95%)"
+          description: "El dataset ha permanecido con antigüedad > 24 horas durante más del 5% del tiempo en la ventana evaluada."

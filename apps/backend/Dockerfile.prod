@@ -1,0 +1,61 @@
+# ==============================================================================
+# Multi-stage Production Dockerfile for MercadoInsight Backend API
+# ==============================================================================
+
+# --- Stage 1: Builder ---
+FROM python:3.13-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY pyproject.toml ./
+
+# Install production dependencies and alembic for database migrations
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir ".[dev]" \
+    && pip uninstall -y pytest pytest-asyncio ruff
+
+COPY app ./app
+RUN pip install --no-cache-dir --no-deps -e .
+
+# --- Stage 2: Minimal Runtime ---
+FROM python:3.13-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app/backend
+
+# Install only curl for health checks
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Security: Create and run as dedicated unprivileged user
+RUN groupadd -g 10001 appgroup \
+    && useradd -u 10001 -g appgroup -s /bin/false -m appuser
+
+# Copy virtualenv and application assets
+COPY --from=builder /opt/venv /opt/venv
+COPY --chown=appuser:appgroup app ./app
+COPY --chown=appuser:appgroup alembic ./alembic
+COPY --chown=appuser:appgroup alembic.ini pyproject.toml ./
+
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 --start-period=10s \
+    CMD curl -f http://localhost:8000/health/live || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

@@ -1,0 +1,172 @@
+{
+  "uid": "etl-monitoring",
+  "title": "MercadoInsight — ETL Pipelines & Ingestion Monitoring",
+  "tags": ["market-insight", "etl", "ingestion", "pipeline"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Pipeline Execution Status",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Licitaciones Sync — Última Ejecución Exitosa",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "time() - etl_last_success_timestamp{pipeline=\"licitaciones\"}", "legendFormat": "Tiempo transcurrido" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 14400, "color": "yellow" },
+              { "value": 86400, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ordenes de Compra Sync — Última Ejecución Exitosa",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "time() - etl_last_success_timestamp{pipeline=\"ordenes_compra\"}", "legendFormat": "Tiempo transcurrido" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 14400, "color": "yellow" },
+              { "value": 86400, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Corridas Exitosas Totales",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sum(etl_runs_total{status=\"success\"})", "legendFormat": "Runs Success" }],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Corridas Fallidas Totales",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "targets": [{ "expr": "sum(etl_runs_total{status=\"failed\"})", "legendFormat": "Runs Failed" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "green" },
+              { "value": 1, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Registros & Throughput",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Registros Procesados por Acción (read / inserted / updated)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (action) (rate(etl_records_processed_total[5m]))",
+          "legendFormat": "{{action}}/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Registros Fallidos por Pipeline",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (pipeline) (rate(etl_records_failed_total[5m]))",
+          "legendFormat": "{{pipeline}} failed/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Duración de Ejecución & Tasa de Error",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Duración de Pipelines (P50, P90, P99)",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(etl_duration_seconds_bucket[1h])) by (le, pipeline))",
+          "legendFormat": "{{pipeline}} P50"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(etl_duration_seconds_bucket[1h])) by (le, pipeline))",
+          "legendFormat": "{{pipeline}} P90"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(etl_duration_seconds_bucket[1h])) by (le, pipeline))",
+          "legendFormat": "{{pipeline}} P99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tasa de Error Global ETL (%)",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "(sum(rate(etl_records_failed_total[15m])) / (sum(rate(etl_records_processed_total[15m])) + 0.001)) * 100",
+          "legendFormat": "Error Rate %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 1, "color": "yellow" },
+              { "value": 5, "color": "red" }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

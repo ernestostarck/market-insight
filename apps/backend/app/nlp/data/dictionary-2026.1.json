@@ -1,0 +1,48 @@
+{
+  "version": "dictionary-2026.1",
+  "entries": [
+    {"concept": "geriatria", "theme": "geriatria", "term": "geriatría", "synonyms": ["atención geriátrica", "medicina geriátrica"]},
+    {"concept": "gerontologia", "theme": "geriatria", "term": "gerontología", "synonyms": ["cuidado del adulto mayor"]},
+
+    {"concept": "adulto_mayor", "theme": "adultos_mayores", "term": "adulto mayor", "synonyms": ["tercera edad", "persona mayor"]},
+    {"concept": "centro_dia", "theme": "adultos_mayores", "term": "centro de día", "synonyms": ["centro diurno para adultos mayores"]},
+    {"concept": "establecimiento_larga_estadia", "theme": "adultos_mayores", "term": "establecimiento de larga estadía para adultos mayores", "abbreviations": ["eleam"]},
+
+    {"concept": "discapacidad", "theme": "discapacidad", "term": "discapacidad", "synonyms": ["persona en situación de discapacidad", "persona con discapacidad"], "abbreviations": ["pcd"]},
+    {"concept": "discapacidad_visual", "theme": "discapacidad", "term": "discapacidad visual", "synonyms": ["baja visión", "ceguera"]},
+    {"concept": "discapacidad_auditiva", "theme": "discapacidad", "term": "discapacidad auditiva", "synonyms": ["hipoacusia", "sordera"]},
+    {"concept": "discapacidad_motora", "theme": "discapacidad", "term": "discapacidad motora", "synonyms": ["discapacidad física"]},
+    {"concept": "discapacidad_intelectual", "theme": "discapacidad", "term": "discapacidad intelectual", "synonyms": []},
+
+    {"concept": "movilidad_reducida", "theme": "movilidad_reducida", "term": "movilidad reducida", "synonyms": ["dificultad de desplazamiento"]},
+    {"concept": "silla_de_ruedas", "theme": "movilidad_reducida", "term": "silla de ruedas", "synonyms": ["silla de ruedas manual", "silla de ruedas eléctrica"], "category_code": "health", "subcategory_code": "medical-equipment"},
+    {"concept": "andador", "theme": "movilidad_reducida", "term": "andador", "synonyms": ["andador ortopédico", "caminador"], "category_code": "health", "subcategory_code": "medical-equipment"},
+    {"concept": "baston", "theme": "movilidad_reducida", "term": "bastón", "synonyms": ["bastón ortopédico", "bastón de apoyo"], "category_code": "health", "subcategory_code": "medical-equipment"},
+    {"concept": "muletas", "theme": "movilidad_reducida", "term": "muletas", "synonyms": ["muletas ortopédicas"], "category_code": "health", "subcategory_code": "medical-equipment"},
+
+    {"concept": "accesibilidad_universal", "theme": "accesibilidad", "term": "accesibilidad universal", "synonyms": ["diseño universal"]},
+    {"concept": "rampa_de_acceso", "theme": "accesibilidad", "term": "rampa de acceso", "synonyms": ["rampa para discapacitados", "rampa accesible"], "category_code": "construction", "subcategory_code": "civil-works"},
+    {"concept": "ascensor_accesible", "theme": "accesibilidad", "term": "ascensor accesible", "synonyms": ["plataforma elevadora"], "category_code": "construction", "subcategory_code": "civil-works"},
+    {"concept": "bano_accesible", "theme": "accesibilidad", "term": "baño accesible", "synonyms": ["baño universal", "servicio higiénico accesible"], "category_code": "construction", "subcategory_code": "civil-works"},
+    {"concept": "senaletica_braille", "theme": "accesibilidad", "term": "señalética en braille", "synonyms": []},
+
+    {"concept": "ayuda_tecnica", "theme": "ayudas_tecnicas", "term": "ayuda técnica", "synonyms": ["ayudas técnicas", "dispositivo de asistencia"], "category_code": "health", "subcategory_code": "medical-equipment"},
+    {"concept": "audifono", "theme": "ayudas_tecnicas", "term": "audífono", "synonyms": ["amplificador auditivo"], "category_code": "health", "subcategory_code": "medical-equipment"},
+    {"concept": "protesis", "theme": "ayudas_tecnicas", "term": "prótesis", "synonyms": ["prótesis ortopédica"], "category_code": "health", "subcategory_code": "medical-equipment"},
+    {"concept": "ortesis", "theme": "ayudas_tecnicas", "term": "órtesis", "synonyms": [], "category_code": "health", "subcategory_code": "medical-equipment"},
+    {"concept": "grua_de_traslado", "theme": "ayudas_tecnicas", "term": "grúa de traslado", "synonyms": ["grúa para pacientes", "elevador de pacientes"], "category_code": "health", "subcategory_code": "medical-equipment"},
+
+    {"concept": "prevencion_caidas", "theme": "prevencion_caidas", "term": "prevención de caídas", "synonyms": []},
+    {"concept": "barra_de_apoyo", "theme": "prevencion_caidas", "term": "barra de apoyo", "synonyms": ["pasamanos de apoyo", "agarradera de seguridad"], "category_code": "construction", "subcategory_code": "civil-works"},
+    {"concept": "piso_antideslizante", "theme": "prevencion_caidas", "term": "piso antideslizante", "synonyms": ["superficie antideslizante", "pavimento antideslizante"], "category_code": "construction", "subcategory_code": "construction-materials"},
+
+    {"concept": "rehabilitacion", "theme": "rehabilitacion", "term": "rehabilitación", "synonyms": ["terapia de rehabilitación"]},
+    {"concept": "kinesiologia", "theme": "rehabilitacion", "term": "kinesiología", "synonyms": ["fisioterapia", "kinesioterapia"], "abbreviations": ["kine"]},
+    {"concept": "terapia_ocupacional", "theme": "rehabilitacion", "term": "terapia ocupacional", "synonyms": [], "abbreviations": ["to"]},
+    {"concept": "fonoaudiologia", "theme": "rehabilitacion", "term": "fonoaudiología", "synonyms": ["terapia del lenguaje"]},
+
+    {"concept": "adaptacion_espacios", "theme": "adaptacion_espacios", "term": "adaptación de espacios", "synonyms": ["adecuación de espacios", "acondicionamiento de espacios"]},
+    {"concept": "ampliacion_vanos_puertas", "theme": "adaptacion_espacios", "term": "ampliación de vanos de puertas", "synonyms": ["ensanche de puertas"], "category_code": "construction", "subcategory_code": "civil-works"},
+    {"concept": "eliminacion_barreras_arquitectonicas", "theme": "adaptacion_espacios", "term": "eliminación de barreras arquitectónicas", "synonyms": ["supresión de barreras arquitectónicas"], "category_code": "construction", "subcategory_code": "civil-works"}
+  ]
+}

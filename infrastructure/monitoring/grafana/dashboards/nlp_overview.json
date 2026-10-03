@@ -1,0 +1,188 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Pipeline Throughput & Latency",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisCenteredZero": false, "axisLabel": "req/sec", "drawStyle": "line", "lineInterpolation": "smooth" },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [
+        {
+          "expr": "sum(rate(market_insight_nlp_tenders_processed_total[5m])) by (stage, status)",
+          "legendFormat": "{{stage}} - {{status}}"
+        }
+      ],
+      "title": "NLP Tenders Processed Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisCenteredZero": false, "axisLabel": "seconds", "drawStyle": "line", "lineInterpolation": "smooth" },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(market_insight_nlp_processing_duration_seconds_bucket[5m])) by (le, stage))",
+          "legendFormat": "{{stage}} p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(market_insight_nlp_processing_duration_seconds_bucket[5m])) by (le, stage))",
+          "legendFormat": "{{stage}} p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(market_insight_nlp_processing_duration_seconds_bucket[5m])) by (le, stage))",
+          "legendFormat": "{{stage}} p99"
+        }
+      ],
+      "title": "NLP Processing Latency (Quantiles)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+      "id": 101,
+      "title": "Model Quality, Confidence & Data Drift",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.15 },
+              { "color": "red", "value": 0.25 }
+            ]
+          },
+          "unit": "none"
+        }
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 10 },
+      "id": 3,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "expr": "market_insight_nlp_data_drift_kl_divergence",
+          "legendFormat": "KL Divergence"
+        }
+      ],
+      "title": "Data Drift (KL Divergence)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 10 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "table", "placement": "right" }, "pieType": "donut" },
+      "targets": [
+        {
+          "expr": "sum by (category_code) (market_insight_nlp_category_distribution_total)",
+          "legendFormat": "{{category_code}}"
+        }
+      ],
+      "title": "Predicted Categories Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 10 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (action) (increase(market_insight_nlp_human_reviews_total[24h]))",
+          "legendFormat": "Action: {{action}}"
+        }
+      ],
+      "title": "Human-in-the-Loop Reviews (24h)",
+      "type": "bargauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 18 },
+      "id": 102,
+      "title": "Errors & Failures",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "stacking": { "mode": "normal" } }
+        }
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 19 },
+      "id": 6,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (stage, error_code) (increase(market_insight_nlp_errors_total[1h]))",
+          "legendFormat": "{{stage}} - {{error_code}}"
+        }
+      ],
+      "title": "NLP Pipeline Errors by Stage (1h)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["nlp", "ai", "market-insight"],
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m"] },
+  "timezone": "browser",
+  "title": "MercadoInsight — NLP & AI Overview",
+  "uid": "nlp-overview"
+}

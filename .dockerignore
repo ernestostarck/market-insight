@@ -1,0 +1,55 @@
+# Git and repository metadata
+.git
+.github
+.claude
+
+# Environment files and secrets (strictly forbidden inside images)
+.env
+.env.*
+!.env.example
+docker/compose/.env.*
+docker/nginx/certs/*
+docker/nginx/auth/*
+*.pem
+*.key
+*.crt
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache
+.ruff_cache
+
+# Node / Frontend artifacts
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist
+build
+
+# Test & report artifacts
+test-results
+graphify-out
+
+# Editor and OS
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
