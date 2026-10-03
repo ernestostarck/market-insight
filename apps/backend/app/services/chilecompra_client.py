@@ -34,7 +34,9 @@ class ChileCompraClient:
 
         async with httpx.AsyncClient(base_url=self.base_url, headers=self._headers(), timeout=30.0) as client:
             response = await client.get("/licitaciones.json", params=params)
-            response.raise_for_status()
+            if response.status_code >= 400:
+                # Never use raise_for_status(): its message embeds the URL, ticket included.
+                raise RuntimeError(f"ChileCompra returned status {response.status_code}")
             return response.json()
 
     async def list_tenders(self, estado: str | None = None) -> list[dict[str, object]]:
@@ -47,6 +49,8 @@ class ChileCompraClient:
 
         async with httpx.AsyncClient(base_url=self.base_url, headers=self._headers(), timeout=30.0) as client:
             response = await client.get("/licitaciones.json", params=params)
-            response.raise_for_status()
+            if response.status_code >= 400:
+                # Never use raise_for_status(): its message embeds the URL, ticket included.
+                raise RuntimeError(f"ChileCompra returned status {response.status_code}")
             payload = response.json()
             return payload if isinstance(payload, dict) else {"Listado": payload}

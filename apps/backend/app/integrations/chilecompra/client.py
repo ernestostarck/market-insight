@@ -85,7 +85,9 @@ class ChileCompraHTTPClient:
                     f"ChileCompra returned retryable status {response.status_code}"
                 )
 
-            response.raise_for_status()
+            if response.status_code >= 400:
+                # Never use raise_for_status(): its message embeds the URL, ticket included.
+                raise ChileCompraAPIError(f"ChileCompra returned status {response.status_code}")
             payload: dict[str, Any] | list[Any] | str | None
             try:
                 payload = response.json()

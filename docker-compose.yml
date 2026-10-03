@@ -9,7 +9,6 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-market_insight}
       POSTGRES_USER: ${POSTGRES_USER:-market_insight}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-market_insight_dev}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -83,16 +82,10 @@ services:
       - ./docker/compose/.env.backend
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173,http://localhost:80}
-      CHILECOMPRA_API_KEY: ${CHILECOMPRA_API_KEY:-replace_with_your_real_key}
       CHILECOMPRA_BASE_URL: ${CHILECOMPRA_BASE_URL:-https://api.mercadopublico.cl/servicios/v1/publico}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://market_insight_app:market_insight_app_dev@postgres:5432/market_insight}
-      REDIS_URL: ${REDIS_URL:-redis://:market_insight_redis_dev@redis:6379/0}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-marketinsight}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-marketinsight-dev-password}
       MINIO_BUCKET_PUBLIC_DOCUMENTS: ${MINIO_BUCKET_PUBLIC_DOCUMENTS:-documents-public}
       MINIO_BUCKET_PRIVATE_DOCUMENTS: ${MINIO_BUCKET_PRIVATE_DOCUMENTS:-documents-private}
       MINIO_BUCKET_ATTACHMENTS: ${MINIO_BUCKET_ATTACHMENTS:-attachments}
@@ -225,8 +218,11 @@ services:
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
+    env_file:
+      - ./docker/compose/.env.database
     environment:
-      DATA_SOURCE_NAME: "postgresql://market_insight:market_insight_dev@postgres:5432/market_insight?sslmode=disable"
+      DATA_SOURCE_URI: "postgres:5432/market_insight?sslmode=disable"
+      DATA_SOURCE_USER: market_insight
     ports:
       - "127.0.0.1:9187:9187"
     depends_on:
@@ -238,9 +234,10 @@ services:
 
   redis-exporter:
     image: oliver006/redis_exporter:v1.61.0
+    env_file:
+      - ./docker/compose/.env.redis
     environment:
       REDIS_ADDR: "redis://redis:6379"
-      REDIS_PASSWORD: "market_insight_redis_dev"
     ports:
       - "127.0.0.1:9121:9121"
     depends_on:
