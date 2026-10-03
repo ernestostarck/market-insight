@@ -7,7 +7,7 @@ import { AuthProvider } from '@/features/auth';
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || '/'}>
         <AuthProvider>{children}</AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
