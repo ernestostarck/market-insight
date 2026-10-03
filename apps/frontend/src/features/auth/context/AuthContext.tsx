@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { clearSession, getAccessToken, refreshAccessToken, setAccessToken } from '@/lib/session';
 import { applyPreferences } from '@/features/auth/preferences';
 import type { LoginCredentials, LoginResponse, LoginResult, User } from '@/features/auth/types';
+import { DEMO_MODE, DEMO_TOKEN, DEMO_USER } from '@/lib/demo';
 
 export interface AuthContextType {
   user: User | null;
@@ -22,7 +23,9 @@ export interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => getAccessToken());
+  const [token, setToken] = useState<string | null>(() =>
+    DEMO_MODE ? DEMO_TOKEN : getAccessToken(),
+  );
   const [user, setUserState] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -44,6 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const checkAuth = useCallback(async () => {
+    if (DEMO_MODE) {
+      setToken(DEMO_TOKEN);
+      setUserState(DEMO_USER);
+      applyPreferences(DEMO_USER.preferences, { onLogin: true });
+      setIsLoading(false);
+      return;
+    }
     try {
       // No access token (or an expired one): the httpOnly refresh cookie may still
       // hold a live session, e.g. after closing and reopening the tab.
@@ -116,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = useCallback(async () => {
+    if (DEMO_MODE) return;
     try {
       // Revokes the session server-side and clears the refresh cookie.
       await api.post('/auth/logout', null, { withCredentials: true });

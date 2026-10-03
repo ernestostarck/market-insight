@@ -1,4 +1,5 @@
-import axios, { type AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios';
+import { DEMO_MODE } from '@/lib/demo';
+import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import { APP_CONFIG } from '@/lib/constants';
 import { clearSession, installAuthHandling } from '@/lib/session';
 import type { ApiError } from '@/types/common';
@@ -13,6 +14,12 @@ export const apiClient: AxiosInstance = axios.create({
 });
 
 // Bearer token + transparent refresh-and-retry on 401 (must precede the error normaliser).
+// Demo sin backend: toda llamada falla como error de red y cada pantalla usa sus datos de ejemplo.
+if (DEMO_MODE) {
+  apiClient.defaults.adapter = (config) =>
+    Promise.reject(new AxiosError('Demo sin backend', AxiosError.ERR_NETWORK, config));
+}
+
 installAuthHandling(apiClient);
 
 apiClient.interceptors.request.use(
