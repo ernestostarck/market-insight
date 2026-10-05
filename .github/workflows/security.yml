@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Trivy Vulnerability & Secret Scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -58,7 +58,7 @@ jobs:
           cache-from: type=gha
 
       - name: Scan Backend Docker Image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: 'mercadoinsight-backend:scan-target'
           format: 'table'
@@ -77,7 +77,7 @@ jobs:
           cache-from: type=gha
 
       - name: Scan Frontend Docker Image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: 'mercadoinsight-frontend:scan-target'
           format: 'table'
