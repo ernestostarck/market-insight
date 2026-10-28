@@ -38,6 +38,16 @@ def test_backend_dockerfile_prod_structure():
     assert "EXPOSE 8000" in runtime_part
 
 
+def test_backend_dockerfile_prod_upgrades_trivy_findings():
+    """Verify vulnerable Python packages are upgraded before entering the runtime image."""
+    dockerfile_path = REPO_ROOT / "apps" / "backend" / "Dockerfile.prod"
+    content = dockerfile_path.read_text(encoding="utf-8").split("AS runtime")[0]
+
+    assert '"setuptools>=78.1.1"' in content
+    assert '"msgpack>=1.2.3"' in content
+    assert '"urllib3>=2.8.0"' in content
+
+
 def test_worker_dockerfile_prod_structure():
     """Verify Celery worker Dockerfile.prod follows multi-stage, non-root and celery healthcheck."""
     dockerfile_path = REPO_ROOT / "apps" / "backend" / "Dockerfile.worker.prod"
