@@ -25,7 +25,8 @@ from urllib.parse import quote
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 from passlib.context import CryptContext
 
 from app.core.config import get_settings
@@ -139,9 +140,9 @@ def decode_token_claims(token: str, *, token_type: str = TOKEN_TYPE_ACCESS) -> d
             algorithms=[ALGORITHM],
             audience=settings.jwt_audience,
             issuer=settings.jwt_issuer,
-            options={"require_exp": True, "require_iat": True, "require_sub": True},
+            options={"require": ["exp", "iat", "sub"]},
         )
-    except JWTError:
+    except PyJWTError:
         return None
     if claims.get("typ") != token_type:
         return None

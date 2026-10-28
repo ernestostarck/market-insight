@@ -17,7 +17,7 @@ dependencies = [
   "psycopg[binary]>=3.2",
   "pydantic-settings>=2.4",
   "email-validator>=2.2",
-  "python-jose[cryptography]>=3.3",
+  "PyJWT[crypto]>=2.10",
   "passlib[bcrypt]>=1.7",
   # passlib 1.7.4's bcrypt self-test is incompatible with bcrypt>=4.1
   # (raises a spurious "password cannot be longer than 72 bytes" on hash()).

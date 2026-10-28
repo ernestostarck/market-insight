@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from jose import jwt
+import jwt
 
 from app.core.security import (
     ALGORITHM,
@@ -35,6 +35,10 @@ def test_create_access_token_coerces_non_string_subject() -> None:
     token = create_access_token(subject=42)
 
     assert decode_access_token(token) == "42"
+
+
+def _unverified(token: str) -> dict:
+    return jwt.decode(token, options={"verify_signature": False})
 
 
 def _decode(token: str) -> dict:
@@ -81,7 +85,7 @@ def test_decode_access_token_rejects_expired_token() -> None:
 
 def test_decode_access_token_rejects_wrong_signature() -> None:
     settings = get_settings()
-    claims = jwt.get_unverified_claims(create_access_token(subject="attacker@example.com"))
+    claims = _unverified(create_access_token(subject="attacker@example.com"))
     forged = jwt.encode(claims, "a-different-secret", algorithm=ALGORITHM)
 
     assert decode_access_token(forged) is None
@@ -98,7 +102,7 @@ def test_decode_access_token_rejects_tokens_without_issuer_or_audience() -> None
 
 def test_decode_access_token_rejects_foreign_audience() -> None:
     settings = get_settings()
-    claims = jwt.get_unverified_claims(create_access_token(subject="u"))
+    claims = _unverified(create_access_token(subject="u"))
     claims["aud"] = "some-other-service"
 
     assert decode_access_token(jwt.encode(claims, settings.secret_key, algorithm=ALGORITHM)) is None
