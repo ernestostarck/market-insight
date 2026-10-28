@@ -22,7 +22,8 @@ COPY pyproject.toml ./
 # Install production dependencies and alembic for database migrations
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir ".[dev]" \
-    && pip uninstall -y pytest pytest-asyncio ruff
+    && pip uninstall -y pytest pytest-asyncio ruff \
+    && pip install --no-cache-dir --upgrade "setuptools>=78.1.1" "msgpack>=1.2.3" "urllib3>=2.8.0"
 
 COPY app ./app
 RUN pip install --no-cache-dir --no-deps -e .
